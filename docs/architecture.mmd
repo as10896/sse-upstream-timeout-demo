@@ -1,0 +1,18 @@
+%% Services in the demo and who owns them.
+flowchart LR
+    browser["Browser<br/>demo page"]
+    webhook["Webhook receiver<br/>/webhook-sink"]
+
+    subgraph yours["Your side"]
+        public["public-api<br/>FastAPI + Jinja2<br/>202 + background job runner"]
+    end
+
+    subgraph provider["Provider's side (not yours)"]
+        edge["edge-proxy<br/>nginx, acts like Cloudflare<br/>idle timeout N seconds"]
+        upstream["upstream-agent<br/>FastAPI, a slow agent<br/>blocking / streaming"]
+    end
+
+    browser -- "POST /jobs → 202<br/>GET /jobs/{id}/events (SSE)" --> public
+    public -- "POST /v1/runs" --> edge
+    edge -- "proxied" --> upstream
+    public -. "POST callback_url" .-> webhook

@@ -1,0 +1,41 @@
+# Edge proxy that behaves like Cloudflare (or any gateway with an idle timeout).
+#
+# `proxy_read_timeout` is the longest nginx waits between two reads from the
+# upstream, not a cap on the whole response. That's the same rule Cloudflare
+# applies with its 100-second limit: stay silent that long and the connection
+# is gone. Any bytes, including an SSE `: ping`, start the timer over.
+#
+# The EDGE_READ_TIMEOUT placeholders are filled in from the environment when the container starts.
+
+server {
+    listen 8080;
+
+    location / {
+        proxy_pass http://upstream-agent:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+
+        proxy_connect_timeout 5s;
+        proxy_send_timeout ${EDGE_READ_TIMEOUT}s;
+        proxy_read_timeout ${EDGE_READ_TIMEOUT}s;
+
+        # Buffering stays at nginx's default (on), just like a real gateway. The
+        # upstream turns it off per response with `X-Accel-Buffering: no`.
+
+        # When nginx gives up before the response starts, answer the way
+        # Cloudflare does: status 524 "A timeout occurred".
+        error_page 504 = @origin_timeout;
+    }
+
+    location @origin_timeout {
+        default_type text/plain;
+        return 524 "error code: 524 (edge proxy: upstream sent nothing for ${EDGE_READ_TIMEOUT}s)\n";
+    }
+
+    location = /edge-healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+}

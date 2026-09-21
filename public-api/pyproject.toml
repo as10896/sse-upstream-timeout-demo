@@ -1,0 +1,25 @@
+[project]
+name = "public-api"
+version = "0.1.0"
+description = "Public API that accepts jobs with 202 and calls the upstream in the background."
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "pydantic-settings>=2.15.0",
+    "uvicorn[standard]>=0.53.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "ASYNC", "RUF", "FAST", "D"]
+ignore = ["D100", "D104", "D203", "D213"]

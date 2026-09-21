@@ -1,0 +1,49 @@
+name: sse-upstream-timeout-demo
+
+# Request path:  browser -> public-api -> edge-proxy -> upstream-agent
+# edge-proxy and upstream-agent stand in for the provider's side, which the caller doesn't control.
+# Settings come from .env (see .env.example); the defaults below give a demo run of about 30 seconds.
+
+services:
+  upstream-agent:
+    build: ./upstream-agent
+    environment:
+      HEARTBEAT_INTERVAL_SECONDS: ${HEARTBEAT_INTERVAL:-5}
+      PROGRESS_INTERVAL_SECONDS: ${PROGRESS_INTERVAL:-4}
+    # No published port: only the edge proxy talks to the upstream.
+    restart: unless-stopped
+
+  edge-proxy:
+    image: nginxinc/nginx-unprivileged:1.29-alpine
+    environment:
+      EDGE_READ_TIMEOUT: ${EDGE_READ_TIMEOUT:-15}
+    volumes:
+      - ./edge-proxy/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      # Published so you can try the upstream with curl through the edge (see README).
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      upstream-agent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/edge-healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  public-api:
+    build: ./public-api
+    environment:
+      UPSTREAM_BASE_URL: http://edge-proxy:8080
+      DEFAULT_WEBHOOK_URL: http://public-api:8000/webhook-sink
+      DEFAULT_DURATION_SECONDS: ${AGENT_DURATION:-30}
+      EDGE_READ_TIMEOUT_SECONDS: ${EDGE_READ_TIMEOUT:-15}
+      HEARTBEAT_INTERVAL_SECONDS: ${HEARTBEAT_INTERVAL:-5}
+      PROGRESS_INTERVAL_SECONDS: ${PROGRESS_INTERVAL:-4}
+    ports:
+      - "127.0.0.1:${PUBLIC_PORT:-8000}:8000"
+    depends_on:
+      edge-proxy:
+        condition: service_healthy
+    restart: unless-stopped

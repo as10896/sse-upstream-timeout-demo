@@ -1,0 +1,19 @@
+%% Request flow for the "streaming, upstream sends keep-alives" scenario.
+sequenceDiagram
+    participant B as Browser
+    participant P as public-api
+    participant E as edge-proxy (provider's gateway)
+    participant U as upstream-agent
+
+    B->>P: POST /jobs {mode: "streaming_keepalive"}
+    P-->>B: 202 Accepted {job_id, events_url}
+    B->>P: GET /jobs/{id}/events (EventSource)
+    P->>E: POST /v1/runs {response_mode: "streaming"}
+    E->>U: (proxied)
+    U-->>P: event: run_started / step_started
+    loop while the agent is busy
+        U-->>P: : ping (sent by the upstream, resets the gateway's idle timer)
+    end
+    U-->>P: event: run_finished {result}
+    P-->>B: timeline events and the final result
+    P->>P: POST callback_url {job_id, status, result}

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SSE vs. Idle Timeout</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+  <main class="page">
+    <header class="intro">
+      <p class="eyebrow">Server-to-server streaming demo</p>
+      <h1>Getting a slow upstream's answer past a gateway timeout</h1>
+      <p class="lead">
+        The public API answers <code>202 Accepted</code> right away, then calls a slow upstream
+        agent. The upstream sits behind its own gateway, which behaves like Cloudflare: it drops
+        any connection that stays silent for <strong>{{ edge_timeout | round(0) | int }}s</strong>.
+        Run the four scenarios side by side to see which ones get their answer back.
+      </p>
+    </header>
+
+    <section class="topology" aria-label="Request path">
+      <div class="hop"><span class="hop-name">Browser</span><span class="hop-note">this page</span></div>
+      <span class="wire" aria-hidden="true"></span>
+      <div class="hop"><span class="hop-name">public-api</span><span class="hop-note">202 + background job</span></div>
+      <span class="wire" aria-hidden="true"></span>
+      <div class="provider">
+        <span class="provider-label">The provider's side (not yours)</span>
+        <div class="provider-hops">
+          <div class="hop hop-edge">
+            <span class="hop-name">edge-proxy</span>
+            <span class="hop-note">idle timeout {{ edge_timeout | round(0) | int }}s</span>
+          </div>
+          <span class="wire" aria-hidden="true"></span>
+          <div class="hop">
+            <span class="hop-name">upstream-agent</span>
+            <span class="hop-note">pings every {{ heartbeat_interval | round(0) | int }}s, if it sends them</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="callout">
+      <strong>Who has to send the keep-alive? The upstream.</strong>
+      The gateway only resets its timer when bytes arrive <em>from</em> the upstream, so nothing
+      the caller sends helps. What the caller can do: choose streaming, check that the upstream
+      sends keep-alives during its longest silence, or turn on options that make it send
+      progress (the fourth scenario). If none of that works, use the upstream's async API
+      if it has one.
+    </aside>
+
+    <form class="controls" id="controls">
+      <label class="field field-query">
+        <span>Query</span>
+        <input name="query" value="Summarise this quarter's incidents" maxlength="500" required>
+      </label>
+      <label class="field field-duration">
+        <span>Agent run time (s)</span>
+        <input name="duration_seconds" type="number" min="1" max="600" step="1"
+               value="{{ default_duration | round(0) | int }}" required>
+      </label>
+      <label class="field field-callback">
+        <span class="checkbox">
+          <input type="checkbox" name="use_callback" checked>
+          POST the result to a webhook
+        </span>
+        <input name="callback_url" type="url" value="{{ default_webhook_url }}">
+      </label>
+      <button type="submit" class="primary">Run all four</button>
+    </form>
+
+    <section class="scenarios" id="scenarios"
+             data-edge-timeout="{{ edge_timeout }}" data-heartbeat="{{ heartbeat_interval }}">
+      {% for scenario in scenarios %}
+      <article class="card" data-mode="{{ scenario.mode }}" data-status="idle">
+        <header class="card-head">
+          <div>
+            <h2>{{ scenario.title }}</h2>
+            <p class="card-summary">{{ scenario.summary }}</p>
+            <p class="card-control">{{ scenario.control }}</p>
+          </div>
+          <span class="pill" data-role="status">idle</span>
+        </header>
+
+        <div class="meter" data-role="meter">
+          <div class="meter-label">
+            <span data-role="meter-label">Idle time since the last byte</span>
+            <span class="meter-value"><span data-role="idle">0.0</span>s / {{ edge_timeout | round(0) | int }}s</span>
+          </div>
+          <div class="meter-track"><div class="meter-fill" data-role="fill"></div></div>
+        </div>
+
+        <dl class="stats">
+          <div><dt>Elapsed</dt><dd><span data-role="elapsed">–</span></dd></div>
+          <div><dt>Pings</dt><dd data-role="pings">0</dd></div>
+          <div><dt>Progress</dt><dd data-role="progress">0</dd></div>
+          <div><dt>Job</dt><dd data-role="job-id">–</dd></div>
+        </dl>
+
+        <ol class="timeline" data-role="timeline" aria-live="polite"></ol>
+
+        <div class="outcome" data-role="outcome" hidden></div>
+
+        <button type="button" class="secondary" data-role="run-one">Run this one only</button>
+      </article>
+      {% endfor %}
+    </section>
+
+    <section class="inbox">
+      <div class="inbox-head">
+        <h2>Webhook inbox</h2>
+        <p>Callbacks received at <code>/webhook-sink</code>, newest first.</p>
+        <button type="button" class="secondary" id="refresh-inbox">Refresh</button>
+      </div>
+      <ul class="inbox-list" id="inbox-list">
+        <li class="empty">Nothing yet. Callbacks show up here when jobs finish.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', path='app.js') }}" defer></script>
+</body>
+</html>
