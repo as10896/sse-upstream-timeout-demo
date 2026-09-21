@@ -13,7 +13,7 @@ class ResultNotifier(Protocol):
         ...
 
 
-class WebhookNotifier:
+class WebhookNotifier(ResultNotifier):
     """Delivers results by POSTing JSON to the caller's callback URL."""
 
     def __init__(self, http: httpx.AsyncClient) -> None:

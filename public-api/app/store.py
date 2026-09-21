@@ -52,7 +52,7 @@ class JobStore(JobReader, JobWriter, Protocol):
     """A store with both the read and the write side."""
 
 
-class InMemoryJobStore:
+class InMemoryJobStore(JobStore):
     """Keeps jobs in process memory.
 
     Fine for a single-process demo. Jobs are lost on restart and aren't shared
@@ -126,10 +126,12 @@ class InMemoryJobStore:
         job = self._jobs[job_id]
         cursor = after_seq
         while True:
+
+            def has_news(seen: int = cursor) -> bool:
+                return len(job.events) > seen or job.closed
+
             async with self._changed:
-                await self._changed.wait_for(
-                    lambda seen=cursor: len(job.events) > seen or job.closed
-                )
+                await self._changed.wait_for(has_news)
                 fresh = job.events[cursor:]
                 finished = job.closed
             for event in fresh:

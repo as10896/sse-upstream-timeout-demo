@@ -327,10 +327,12 @@ user `app` (uid 10001), and the edge proxy uses the unprivileged nginx image.
 
 ## Development
 
-Each service is its own uv project:
+Each service is its own uv project, checked with Ruff (lint and format) and mypy in
+strict mode:
 
 ```bash
 cd public-api            # or upstream-agent
 uv sync
 uv run ruff check . && uv run ruff format --check .
+uv run mypy app
 ```

@@ -41,7 +41,7 @@ class UpstreamClient(Protocol):
         ...
 
 
-class BlockingUpstreamClient:
+class BlockingUpstreamClient(UpstreamClient):
     """Classic request/response: send the request, wait for the whole JSON body."""
 
     def __init__(self, http: httpx.AsyncClient) -> None:
@@ -73,7 +73,7 @@ class BlockingUpstreamClient:
         yield UpstreamEvent(JobEventKind.RESULT, "Received the final answer", response.json())
 
 
-class StreamingUpstreamClient:
+class StreamingUpstreamClient(UpstreamClient):
     """Streaming call: read the SSE body as it arrives, pings included."""
 
     def __init__(

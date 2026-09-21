@@ -1,6 +1,9 @@
-"""FastAPI dependencies that hand out the services built at startup (see `app.main`)."""
+"""FastAPI dependencies that hand out the services built at startup (see `app.main`).
 
-from typing import Annotated
+`app.state` is untyped, so each getter uses `cast` to state what `lifespan` put there.
+"""
+
+from typing import Annotated, cast
 
 from fastapi import Depends, HTTPException, Request, status
 
@@ -13,17 +16,17 @@ from app.store import JobStore
 
 def get_store(request: Request) -> JobStore:
     """Return the job store."""
-    return request.app.state.store
+    return cast(JobStore, request.app.state.store)
 
 
 def get_runner(request: Request) -> JobRunner:
     """Return the background job runner."""
-    return request.app.state.runner
+    return cast(JobRunner, request.app.state.runner)
 
 
 def get_inbox(request: Request) -> WebhookInbox:
     """Return the demo webhook inbox."""
-    return request.app.state.inbox
+    return cast(WebhookInbox, request.app.state.inbox)
 
 
 StoreDep = Annotated[JobStore, Depends(get_store)]

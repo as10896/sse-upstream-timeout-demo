@@ -57,7 +57,7 @@ PROGRESS_MESSAGES: tuple[str, ...] = (
 )
 
 
-class SimulatedAgent:
+class SimulatedAgent(Agent):
     """Stand-in for an AI agent: sleeps through a fixed plan of weighted steps."""
 
     def __init__(
